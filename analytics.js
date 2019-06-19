@@ -9,6 +9,7 @@ let defaultOptions = { debug: false };
 
 export default class Analytics {
     customDimensions = []
+    uid = ''
 
     constructor(propertyId, additionalParameters = {}, options = defaultOptions){
         this.propertyId = propertyId;
@@ -80,7 +81,7 @@ export default class Analytics {
 
         const params = new Serializable(this.parameters).toQueryString();
 
-        const identifier = hit.uid ? 'uid=' + hit.uid : 'cid=' + this.clientId;
+        const identifier = this.uid ? 'uid=' + this.uid : 'cid=' + this.clientId;
 
         const url = `https://www.google-analytics.com/collect?tid=${this.propertyId}&v=1&${identifier}&${hit.toQueryString()}&${params}&${customDimensions}&z=${Math.round(Math.random() * 1e8)}`;
 
