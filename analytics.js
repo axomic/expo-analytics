@@ -19,9 +19,9 @@ export default class Analytics {
             .then(userAgent => {
                 this.userAgent = userAgent;
 
-                this.parameters = { 
-                    an: Constants.manifest.name, 
-                    aid: Constants.manifest.slug, 
+                this.parameters = {
+                    an: Constants.manifest.name,
+                    aid: Constants.manifest.slug,
                     av: Constants.manifest.version,
                     sr: `${width}x${height}`,
                     ...additionalParameters
@@ -80,7 +80,9 @@ export default class Analytics {
 
         const params = new Serializable(this.parameters).toQueryString();
 
-        const url = `https://www.google-analytics.com/collect?tid=${this.propertyId}&v=1&cid=${this.clientId}&${hit.toQueryString()}&${params}&${customDimensions}&z=${Math.round(Math.random() * 1e8)}`;
+        const identifier = hit.uid ? 'uid=' + hit.uid : 'cid=' + this.clientId;
+
+        const url = `https://www.google-analytics.com/collect?tid=${this.propertyId}&v=1&${identifier}&${hit.toQueryString()}&${params}&${customDimensions}&z=${Math.round(Math.random() * 1e8)}`;
 
         let options = {
             method: 'get',
