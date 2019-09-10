@@ -1,5 +1,5 @@
 import { Platform, Dimensions } from 'react-native';
-import * as Constants from 'expo-camera';
+import * as Constants from 'expo-constants';
 
 import { ScreenHit, PageHit, Event, Serializable } from './hits';
 
