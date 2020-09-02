@@ -7,6 +7,23 @@ const { width, height } = Dimensions.get('window');
 
 let defaultOptions = { debug: false };
 
+let webViewUserAgent = null;
+const getWebViewUserAgent = async (options) => {
+    return new Promise((resolve) => {
+        if (options.userAgent) {
+            webViewUserAgent = options.userAgent;
+            return resolve(options.userAgent);
+        }
+        if (webViewUserAgent) return resolve(webViewUserAgent);
+        Constants.getWebViewUserAgentAsync()
+          .then(userAgent => {
+              webViewUserAgent = userAgent;
+              resolve(userAgent);
+          })
+          .catch(() => resolve('unknown user agent'))
+    });
+}
+
 export default class Analytics {
     customDimensions = []
     uid = ''
@@ -14,9 +31,16 @@ export default class Analytics {
     constructor(propertyId, additionalParameters = {}, options = defaultOptions){
         this.propertyId = propertyId;
         this.options = options;
-        this.clientId = Constants.deviceId;
+        this.clientId = Constants.installationId;
+        this.parameters = {
+            an: Constants.manifest.name,
+            aid: Constants.manifest.slug,
+            av: Constants.manifest.version,
+            sr: `${width}x${height}`,
+            ...additionalParameters
+        };
 
-        this.promiseGetWebViewUserAgentAsync = Constants.getWebViewUserAgentAsync()
+        this.promiseGetWebViewUserAgentAsync = getWebViewUserAgent(options)
             .then(userAgent => {
                 this.userAgent = userAgent;
 
@@ -59,6 +83,14 @@ export default class Analytics {
         delete this.customDimensions[index];
     }
 
+    addCustomMetric(index, value) {
+        this.customMetrics[index] = value;
+      }
+
+    removeCustomMetric(index) {
+        delete this.customMetrics[index];
+    }
+
     send(hit) {
         /* format: https://www.google-analytics.com/collect? +
         * &tid= GA property ID (required)
@@ -74,10 +106,26 @@ export default class Analytics {
         * &av= app version
         * &sr= screen resolution
         * &cd{n}= custom dimensions
+        * &cm{n}= custom metrics
         * &z= cache buster (prevent browsers from caching GET requests -- should always be last)
+        *
+        * Ecommerce track support (transaction)
+        * &ti= transaction The transaction ID. (e.g. 1234)
+        * &ta= The store or affiliation from which this transaction occurred (e.g. Acme Clothing).
+        * &tr= Specifies the total revenue or grand total associated with the transaction (e.g. 11.99). This value may include shipping, tax costs, or other adjustments to total revenue that you want to include as part of your revenue calculations.
+        * &tt= Specifies the total shipping cost of the transaction. (e.g. 5)
+        *
+        * Ecommerce track support (addItem)
+        * &ti= transaction The transaction ID. (e.g. 1234)
+        * &in= The item name. (e.g. Fluffy Pink Bunnies)
+        * &ip= The individual, unit, price for each item. (e.g. 11.99)
+        * &iq= The number of units purchased in the transaction. If a non-integer value is passed into this field (e.g. 1.5), it will be rounded to the closest integer value.
+        * &ic= TSpecifies the SKU or item code. (e.g. SKU47)
+        * &iv= The category to which the item belongs (e.g. Party Toys)
         */
 
         const customDimensions = this.customDimensions.map((value, index) => `cd${index}=${value}`).join('&');
+        const customMetrics = this.customMetrics.map((value, index) => `cm${index}=${value}`).join('&');
 
         const params = new Serializable(this.parameters).toQueryString();
 
@@ -85,11 +133,17 @@ export default class Analytics {
 
         const url = `https://www.google-analytics.com/collect?tid=${this.propertyId}&v=1&${identifier}&${hit.toQueryString()}&${params}&${customDimensions}&z=${Math.round(Math.random() * 1e8)}`;
 
+        //Keep original options if on mobile
         let options = {
             method: 'get',
             headers: {
-                'User-Agent': this.userAgent
+                'User-Agent': this.userAgent,
             }
+        };
+
+        if (Platform.OS === 'web') {
+            //Request opaque resources to avoid preflight CORS error in Safari
+            options.mode = 'no-cors';
         }
 
         if(this.options.debug){
